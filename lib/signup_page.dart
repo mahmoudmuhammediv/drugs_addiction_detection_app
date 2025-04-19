@@ -71,8 +71,10 @@ class _SignUpPageState extends State<SignUpPage> {
                 // Name field
                 TextFormField(
                   controller: _nameController,
+                  style: TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Full Name',
+                    labelStyle: TextStyle(color: Colors.white70),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -89,8 +91,10 @@ class _SignUpPageState extends State<SignUpPage> {
                 // Email field
                 TextFormField(
                   controller: _emailController,
+                  style: TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Email Address',
+                    labelStyle: TextStyle(color: Colors.white70),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -108,8 +112,10 @@ class _SignUpPageState extends State<SignUpPage> {
                 // Password field
                 TextFormField(
                   controller: _passwordController,
+                  style: TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Password',
+                    labelStyle: TextStyle(color: Colors.white70),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -130,8 +136,10 @@ class _SignUpPageState extends State<SignUpPage> {
                 // Confirm Password field
                 TextFormField(
                   controller: _confirmPasswordController,
+                  style: TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
+                    labelStyle: TextStyle(color: Colors.white70),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
