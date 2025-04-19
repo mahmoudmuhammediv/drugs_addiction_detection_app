@@ -11,7 +11,8 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -34,24 +35,26 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFF1A237E), // Dark blue background
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.start, // Align content to the start
+              mainAxisAlignment:
+                  MainAxisAlignment.start, // Align content to the start
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Add vertical spacing at the top
                 const SizedBox(height: 64), // Adjust this value as needed
-
                 // Welcome text
                 Text(
                   'Create an Account',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
+                    color: Colors.white, // White text for contrast
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -60,7 +63,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   'Please fill in the details below.',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey,
+                    color: Colors.white70, // Slightly transparent white
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -158,10 +161,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                   child: Text(
                     'Sign Up',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.white),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -175,10 +175,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     },
                     child: Text(
                       'Already have an account? Login',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ),
                 ),

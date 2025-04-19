@@ -27,9 +27,9 @@ class _LoginPageState extends State<LoginPage> {
     if (_formKey.currentState!.validate()) {
       print("Form is valid"); // Debug: Check if validation passes
       // Navigate to the home screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => HomeScreen()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (context) => HomeScreen()));
     } else {
       print("Form is invalid"); // Debug: Check if validation fails
     }
@@ -38,6 +38,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFF1A237E), // Dark blue background
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -46,32 +47,38 @@ class _LoginPageState extends State<LoginPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Welcome text
               Text(
                 'Welcome back!',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
+                  color: Colors.white, // White text for contrast
                 ),
               ),
               const SizedBox(height: 8),
-              // Subtext
               Text(
                 'Please login to your account.',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey,
+                  color:
+                      Colors
+                          .white70, // Slightly transparent white for secondary text
                 ),
               ),
               const SizedBox(height: 32),
-
-              // Email field
               TextFormField(
                 controller: _emailController,
+                style: TextStyle(color: Colors.white), // White text for input
                 decoration: InputDecoration(
                   labelText: 'Email Address',
-                  border: OutlineInputBorder(
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.white30),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.white),
                   ),
                 ),
                 keyboardType: TextInputType.emailAddress,
@@ -83,24 +90,19 @@ class _LoginPageState extends State<LoginPage> {
                 },
               ),
               const SizedBox(height: 16),
-
-              // Password field
               TextFormField(
                 controller: _passwordController,
+                style: TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  border: OutlineInputBorder(
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.white30),
                   ),
-                  suffixIcon: TextButton(
-                    onPressed: () {},
-                    child: Text(
-                      'Forgot?',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontSize: 14,
-                      ),
-                    ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.white),
                   ),
                 ),
                 obscureText: true,
@@ -115,7 +117,8 @@ class _LoginPageState extends State<LoginPage> {
 
               // Login button
               ElevatedButton(
-                onPressed: _login, // Ensure this is connected to the _login function
+                onPressed:
+                    _login, // Ensure this is connected to the _login function
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   minimumSize: Size(double.infinity, 50),
@@ -125,10 +128,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 child: Text(
                   'Login',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                  ),
+                  style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
               ),
               const SizedBox(height: 16),
@@ -146,10 +146,7 @@ class _LoginPageState extends State<LoginPage> {
                   },
                   child: Text(
                     'REGISTER NOW',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                 ),
               ),

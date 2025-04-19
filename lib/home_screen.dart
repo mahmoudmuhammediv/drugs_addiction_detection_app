@@ -1,36 +1,24 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'services/tflite_service.dart';
+import 'package:image/image.dart' as img;
+import 'classifier.dart';
+import 'package:path_provider/path_provider.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   File? _image;
-  String? _result;
-  bool _isLoading = true;
-  bool _isPredicting = false;
+  String _prediction = "";
+  bool _isProcessing = false;
+  final Classifier _classifier = Classifier();
 
-  @override
-  void initState() {
-    super.initState();
-    _initializeModel();
-  }
-
-  Future<void> _initializeModel() async {
-    final result = await TFLiteService.loadModel();
-    setState(() {
-      _isLoading = false;
-      _result = result;
-    });
-  }
-
-  Future<void> _selectImage() async {
+  Future<void> _pickImage() async {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -38,215 +26,256 @@ class _HomeScreenState extends State<HomeScreen> {
       if (pickedFile != null) {
         setState(() {
           _image = File(pickedFile.path);
-          _result = null;
+          _prediction = ""; // Reset prediction when new image is selected
         });
       }
     } catch (e) {
-      setState(() => _result = 'Error selecting image: $e');
+      _showError("Error picking image: $e");
     }
   }
 
-  Future<void> _runPrediction() async {
+  Future<void> _predict() async {
     if (_image == null) return;
 
-    setState(() => _isPredicting = true);
+    setState(() {
+      _isProcessing = true;
+      _prediction = "Analyzing image...";
+    });
+
     try {
-      final prediction = await TFLiteService.predict(_image!);
-      setState(() {
-        _result = prediction;
-        _isPredicting = false;
-      });
-    } catch (e) {
-      setState(() {
-        _result = 'Prediction error: $e';
-        _isPredicting = false;
-      });
+      final bytes = await _image!.readAsBytes();
+      final decodedImage = img.decodeImage(bytes);
+
+      if (decodedImage == null) {
+        throw Exception("Failed to decode image");
+      }
+
+      final resizedImage = img.copyResize(
+        decodedImage,
+        width: 256,
+        height: 256,
+      );
+
+      final resizedBytes = img.encodeJpg(resizedImage);
+      final tempDir = await getTemporaryDirectory();
+      final tempPath = '${tempDir.path}/resized_image.jpg';
+      final resizedFile = File(tempPath)..writeAsBytesSync(resizedBytes);
+
+      final prediction = await _classifier.predict(resizedFile);
+      setState(() => _prediction = prediction);
+    } catch (error) {
+      _showError(error.toString());
+    } finally {
+      setState(() => _isProcessing = false);
     }
   }
 
-  @override
-  void dispose() {
-    TFLiteService.closeModel();
-    super.dispose();
+  void _showError(String message) {
+    setState(() => _prediction = "Error: $message");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final padding = screenSize.width > 600 ? 32.0 : 24.0;
-
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1A237E),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.all(padding),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 800),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (_isLoading)
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircularProgressIndicator(color: Colors.green),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Initializing model...',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      Column(
-                        children: [
-                          Text(
-                            'Detect Drug Addiction',
-                            style: TextStyle(
-                              fontSize: screenSize.width > 600 ? 32 : 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Upload an image to analyze for signs of drug addiction.',
-                            style: TextStyle(
-                              fontSize: screenSize.width > 600 ? 18 : 16,
-                              color: Colors.grey[600],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 32),
-                          ElevatedButton(
-                            onPressed: _selectImage,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              minimumSize: Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Icon(Icons.image, color: Colors.white),
-                                SizedBox(width: 12),
-                                Text(
-                                  'Select Image',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_image != null) ...[
-                            const SizedBox(height: 24),
-                            Container(
-                              constraints: BoxConstraints(
-                                maxHeight: screenSize.height * 0.4,
-                                maxWidth: screenSize.width * 0.8,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.file(_image!, fit: BoxFit.contain),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            ElevatedButton(
-                              onPressed: _runPrediction,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                minimumSize: Size(double.infinity, 56),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.psychology, color: Colors.white),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Analyze Image',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          if (_isPredicting)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 24),
-                              child: Column(
-                                children: [
-                                  CircularProgressIndicator(
-                                    color: Colors.green,
-                                  ),
-                                  SizedBox(height: 16),
-                                  Text(
-                                    'Analyzing image...',
-                                    style: TextStyle(color: Colors.grey[600]),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else if (_result != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 24),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color:
-                                      _result!.contains('Not Addicted')
-                                          ? Colors.green.withOpacity(0.1)
-                                          : Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color:
-                                        _result!.contains('Not Addicted')
-                                            ? Colors.green
-                                            : Colors.red,
-                                  ),
-                                ),
-                                child: Text(
-                                  _result!,
-                                  style: TextStyle(
-                                    fontSize: screenSize.width > 600 ? 20 : 18,
-                                    color:
-                                        _result!.contains('Not Addicted')
-                                            ? Colors.green
-                                            : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 40),
+              _buildImageSection(),
+              const SizedBox(height: 24),
+              _buildActionButtons(),
+              const SizedBox(height: 32),
+              _buildResultSection(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Addiction Detection",
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          "Upload an image to analyze and detect potential signs of addiction.",
+          style: TextStyle(fontSize: 16, color: Colors.white, height: 1.5),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImageSection() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        width: double.infinity,
+        height: 300,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child:
+            _image != null
+                ? ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.file(_image!, fit: BoxFit.contain),
+                )
+                : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(
+                      Icons.add_photo_alternate_rounded,
+                      size: 64,
+                      color: Color(0xFF4F566B),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      "Tap to upload an image",
+                      style: TextStyle(color: Color(0xFF4F566B), fontSize: 16),
+                    ),
                   ],
                 ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _pickImage,
+            icon: const Icon(
+              Icons.add_photo_alternate_rounded,
+              color: Colors.white,
+            ),
+            label: const Text(
+              "Select Image",
+              style: TextStyle(color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF635BFF),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
         ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _isProcessing || _image == null ? null : _predict,
+            icon: const Icon(Icons.analytics_rounded, color: Colors.white),
+            label: const Text("Analyze", style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF32325D),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              disabledBackgroundColor: const Color(0xFFE3E8EE),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
+      child:
+          _isProcessing
+              ? Column(
+                children: const [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF635BFF),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    "Analyzing image...",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1F36),
+                    ),
+                  ),
+                ],
+              )
+              : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Analysis Result",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1F36),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _prediction.isNotEmpty
+                        ? _prediction
+                        : "Upload an image to see the analysis result",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF4F566B),
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
     );
   }
 }
