@@ -18,15 +18,15 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isProcessing = false;
   final Classifier _classifier = Classifier();
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage({required ImageSource source}) async {
     try {
       final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      final pickedFile = await picker.pickImage(source: source);
 
       if (pickedFile != null) {
         setState(() {
           _image = File(pickedFile.path);
-          _prediction = ""; // Reset prediction when new image is selected
+          _prediction = ""; // Reset prediction
         });
       }
     } catch (e) {
@@ -58,8 +58,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final resizedBytes = img.encodeJpg(resizedImage);
       final tempDir = await getTemporaryDirectory();
-      final tempPath = '${tempDir.path}/resized_image.jpg';
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final tempPath = '${tempDir.path}/resized_image_$timestamp.jpg';
       final resizedFile = File(tempPath)..writeAsBytesSync(resizedBytes);
+
+      setState(() {
+        _image = resizedFile;
+      });
 
       final prediction = await _classifier.predict(resizedFile);
       setState(() => _prediction = prediction);
@@ -69,6 +74,15 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isProcessing = false);
     }
   }
+
+  void _reset() {
+    setState(() {
+      _image = null;
+      _prediction = "";
+      _isProcessing = false;
+    });
+  }
+
 
   void _showError(String message) {
     setState(() => _prediction = "Error: $message");
@@ -124,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildImageSection() {
     return GestureDetector(
-      onTap: _pickImage,
+      onTap: () => _pickImage(source: ImageSource.gallery),
       child: Container(
         width: double.infinity,
         height: 300,
@@ -165,57 +179,71 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActionButtons() {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _pickImage,
-            icon: const Icon(
-              Icons.add_photo_alternate_rounded,
-              color: Colors.white,
-            ),
-            label: const Text(
-              "Select Image",
-              style: TextStyle(color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF635BFF),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _pickImage(source: ImageSource.gallery),
+                icon: const Icon(Icons.photo_library, color: Colors.white),
+                label: const Text("Gallery", style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF635BFF),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _pickImage(source: ImageSource.camera),
+                icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
+                label: const Text("Camera", style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A237E),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _isProcessing || _image == null ? null : _predict,
-            icon: const Icon(Icons.analytics_rounded, color: Colors.white),
-            label: const Text("Analyze", style: TextStyle(color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF32325D),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _isProcessing || _image == null ? null : _predict,
+                icon: const Icon(Icons.analytics_rounded, color: Colors.white),
+                label: const Text("Analyze", style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF32325D),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              disabledBackgroundColor: const Color(0xFFE3E8EE),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _image == null ? null : _reset,
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                label: const Text("Reset", style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB71C1C),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
+
 
   Widget _buildResultSection() {
     return Container(
