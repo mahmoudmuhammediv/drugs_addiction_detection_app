@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/auth_service.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -11,9 +12,10 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService(); // Changed from FirebaseAuth to AuthService
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -24,26 +26,52 @@ class _SignUpPageState extends State<SignUpPage> {
     super.dispose();
   }
 
-  void _signUp() {
+  Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
-      // Here you would add Firebase registration later
-      // For now, we'll just navigate back to login
-      Navigator.of(context).pop();
+      if (_passwordController.text != _confirmPasswordController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Passwords do not match'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      setState(() => _isLoading = true);
+      try {
+        await _authService.signUpWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+          name: _nameController.text, // Added name parameter
+        );
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/home');
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF1A237E), // Dark blue background
+      backgroundColor: Color(0xFF1A237E),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.start, // Align content to the start
+              mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Add vertical spacing at the top
@@ -54,7 +82,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white, // White text for contrast
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -63,7 +91,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   'Please fill in the details below.',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white70, // Slightly transparent white
+                    color: Colors.white70,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -75,9 +103,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   decoration: InputDecoration(
                     labelText: 'Full Name',
                     labelStyle: TextStyle(color: Colors.white70),
-                    border: OutlineInputBorder(
+                    enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.white30),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.white),
+                    ),
+                    errorStyle: TextStyle(color: Colors.redAccent),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -95,14 +129,23 @@ class _SignUpPageState extends State<SignUpPage> {
                   decoration: InputDecoration(
                     labelText: 'Email Address',
                     labelStyle: TextStyle(color: Colors.white70),
-                    border: OutlineInputBorder(
+                    enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.white30),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.white),
+                    ),
+                    errorStyle: TextStyle(color: Colors.redAccent),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
+                    }
+                    if (!value.contains('@') || !value.contains('.')) {
+                      return 'Please enter a valid email address';
                     }
                     return null;
                   },
@@ -116,9 +159,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   decoration: InputDecoration(
                     labelText: 'Password',
                     labelStyle: TextStyle(color: Colors.white70),
-                    border: OutlineInputBorder(
+                    enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.white30),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.white),
+                    ),
+                    errorStyle: TextStyle(color: Colors.redAccent),
                   ),
                   obscureText: true,
                   validator: (value) {
@@ -140,9 +189,15 @@ class _SignUpPageState extends State<SignUpPage> {
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
                     labelStyle: TextStyle(color: Colors.white70),
-                    border: OutlineInputBorder(
+                    enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.white30),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.white),
+                    ),
+                    errorStyle: TextStyle(color: Colors.redAccent),
                   ),
                   obscureText: true,
                   validator: (value) {
@@ -159,7 +214,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
                 // Sign Up button
                 ElevatedButton(
-                  onPressed: _signUp,
+                  onPressed: _isLoading ? null : _signUp,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     minimumSize: Size(double.infinity, 50),
@@ -167,10 +222,19 @@ class _SignUpPageState extends State<SignUpPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: Text(
-                    'Sign Up',
-                    style: TextStyle(fontSize: 18, color: Colors.white),
-                  ),
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          'Sign Up',
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        ),
                 ),
                 const SizedBox(height: 16),
 
@@ -178,12 +242,15 @@ class _SignUpPageState extends State<SignUpPage> {
                 Align(
                   alignment: Alignment.center,
                   child: TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(); // Navigate back to login
+                    onPressed: _isLoading ? null : () {
+                      Navigator.of(context).pop();
                     },
                     child: Text(
                       'Already have an account? Login',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _isLoading ? Colors.grey.withOpacity(0.5) : Colors.grey,
+                      ),
                     ),
                   ),
                 ),

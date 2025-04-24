@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "459145001049",
+    "project_id": "drugs-addiction-detectio-41ad3",
+    "storage_bucket": "drugs-addiction-detectio-41ad3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:459145001049:android:090233840351270c98d948",
+        "android_client_info": {
+          "package_name": "com.example.drugs_addiction_detection"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwJ_AeBDIdDJvRirfU6Dpyfy3sPkaWe8o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

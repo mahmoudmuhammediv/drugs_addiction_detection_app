@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'signup_page.dart';
-import 'home_screen.dart';
+import 'services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,6 +13,8 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService(); // Use AuthService instead of direct Firebase
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -21,24 +23,34 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _login() {
-    print("Login button pressed"); // Debug: Check if this is printed
-
+  Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      print("Form is valid"); // Debug: Check if validation passes
-      // Navigate to the home screen
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (context) => HomeScreen()));
-    } else {
-      print("Form is invalid"); // Debug: Check if validation fails
+      setState(() => _isLoading = true);
+      try {
+        await _authService.signInWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/home');
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF1A237E), // Dark blue background
+      backgroundColor: Color(0xFF1A237E),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -52,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white, // White text for contrast
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 8),
@@ -60,15 +72,13 @@ class _LoginPageState extends State<LoginPage> {
                 'Please login to your account.',
                 style: TextStyle(
                   fontSize: 16,
-                  color:
-                      Colors
-                          .white70, // Slightly transparent white for secondary text
+                  color: Colors.white70,
                 ),
               ),
               const SizedBox(height: 32),
               TextFormField(
                 controller: _emailController,
-                style: TextStyle(color: Colors.white), // White text for input
+                style: TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Email Address',
                   labelStyle: TextStyle(color: Colors.white70),
@@ -80,11 +90,15 @@ class _LoginPageState extends State<LoginPage> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: Colors.white),
                   ),
+                  errorStyle: TextStyle(color: Colors.redAccent),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email';
+                  }
+                  if (!value.contains('@') || !value.contains('.')) {
+                    return 'Please enter a valid email';
                   }
                   return null;
                 },
@@ -104,21 +118,23 @@ class _LoginPageState extends State<LoginPage> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: Colors.white),
                   ),
+                  errorStyle: TextStyle(color: Colors.redAccent),
                 ),
                 obscureText: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your password';
                   }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
                   return null;
                 },
               ),
               const SizedBox(height: 32),
 
-              // Login button
               ElevatedButton(
-                onPressed:
-                    _login, // Ensure this is connected to the _login function
+                onPressed: _isLoading ? null : _login,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   minimumSize: Size(double.infinity, 50),
@@ -126,27 +142,33 @@ class _LoginPageState extends State<LoginPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: Text(
-                  'Login',
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
+                child: _isLoading
+                    ? CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                        'Login',
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
               ),
               const SizedBox(height: 16),
 
-              // Register now link
               Align(
                 alignment: Alignment.center,
                 child: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const SignUpPage(),
-                      ),
-                    );
-                  },
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const SignUpPage(),
+                            ),
+                          );
+                        },
                   child: Text(
                     'REGISTER NOW',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _isLoading ? Colors.grey.withOpacity(0.5) : Colors.grey,
+                    ),
                   ),
                 ),
               ),
