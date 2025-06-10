@@ -1,194 +1,351 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
 
-class AuthService {
+class AuthResult {
+  final bool success;
+  final String message;
+  final UserCredential? userCredential;
+  final bool requiresEmailVerification;
+
+  AuthResult({
+    required this.success,
+    required this.message,
+    this.userCredential,
+    this.requiresEmailVerification = false,
+  });
+}
+
+/// Service class to handle all authentication related operations
+class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  // Stream to listen to auth state changes
+  // Singleton pattern
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
+  AuthService._internal();
+
+  // Auth state stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Email/Password Sign Up with name
-  Future<UserCredential?> signUpWithEmailAndPassword({
+  // Current user
+  User? get currentUser => _auth.currentUser;
+
+  // Authentication state
+  bool get isSignedIn => _auth.currentUser != null;
+
+  /// Handle Firebase Auth exceptions
+  FirebaseAuthException _handleAuthException(FirebaseAuthException e) {
+    String message;
+    switch (e.code) {
+      case 'user-not-found':
+        message = 'No account found with this email. Please sign up first.';
+        break;
+      case 'wrong-password':
+        message = 'Incorrect password. Please try again.';
+        break;
+      case 'invalid-email':
+        message = 'Invalid email address format.';
+        break;
+      case 'user-disabled':
+        message = 'This account has been disabled. Please contact support.';
+        break;
+      case 'too-many-requests':
+        message = 'Too many failed attempts. Please try again later.';
+        break;
+      case 'operation-not-allowed':
+        message =
+            'Email/password sign in is not enabled. Please contact support.';
+        break;
+      case 'network-request-failed':
+        message = 'Network error. Please check your internet connection.';
+        break;
+      case 'email-already-in-use':
+        message = 'An account already exists with this email.';
+        break;
+      case 'weak-password':
+        message = 'Password is too weak. Please use a stronger password.';
+        break;
+      case 'account-exists-with-different-credential':
+        message = 'An account already exists with a different sign-in method.';
+        break;
+      case 'invalid-credential':
+        message = 'The sign-in credential is invalid. Please try again.';
+        break;
+      case 'email-not-verified':
+        message = 'Please verify your email before signing in.';
+        break;
+      case 'verification-email-sent':
+        message =
+            'A verification email has been sent. Please verify your email before signing in.';
+        break;
+      default:
+        message =
+            e.message ?? 'An unexpected error occurred. Please try again.';
+    }
+    return FirebaseAuthException(code: e.code, message: message);
+  }
+
+  /// Sign in with email and password
+  Future<AuthResult> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      if (!userCredential.user!.emailVerified) {
+        await userCredential.user!.sendEmailVerification();
+        await signOut();
+        return AuthResult(
+          success: false,
+          message:
+              'Please verify your email before signing in. A new verification email has been sent.',
+          requiresEmailVerification: true,
+        );
+      }
+
+      return AuthResult(
+        success: true,
+        message: 'Successfully signed in',
+        userCredential: userCredential,
+      );
+    } on FirebaseAuthException catch (e) {
+      return AuthResult(success: false, message: _getErrorMessage(e.code));
+    } catch (_) {
+      return AuthResult(
+        success: false,
+        message: 'An unexpected error occurred. Please try again.',
+      );
+    }
+  }
+
+  /// Sign up with email and password
+  Future<AuthResult> signUpWithEmailAndPassword({
     required String email,
     required String password,
     required String name,
   }) async {
     try {
-      if (email.trim().isEmpty || password.trim().isEmpty || name.trim().isEmpty) {
-        throw 'All fields are required';
-      }
-
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
 
-      if (userCredential.user == null) {
-        throw 'Failed to create user account';
-      }
+      // Update display name
+      await userCredential.user!.updateDisplayName(name);
 
-      // Update the user's display name
-      await userCredential.user?.updateDisplayName(name.trim());
+      // Send email verification
+      await userCredential.user!.sendEmailVerification();
 
-      return userCredential;
-    } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'weak-password':
-          errorMessage = 'The password provided is too weak.';
-          break;
-        case 'email-already-in-use':
-          errorMessage = 'An account already exists for this email.';
-          break;
-        case 'invalid-email':
-          errorMessage = 'The email address is not valid.';
-          break;
-        default:
-          errorMessage = e.message ?? 'An error occurred during sign up';
-      }
-      throw errorMessage;
-    }
-  }
-
-  // Email/Password Sign In
-  Future<UserCredential?> signInWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      if (email.trim().isEmpty || password.trim().isEmpty) {
-        throw 'Email and password are required';
-      }
-
-      return await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
+      return AuthResult(
+        success: true,
+        message:
+            'Account created successfully. Please check your email for verification.',
+        userCredential: userCredential,
+        requiresEmailVerification: true,
       );
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'user-not-found':
-          errorMessage = 'No user found for this email.';
-          break;
-        case 'wrong-password':
-          errorMessage = 'Wrong password provided.';
-          break;
-        case 'user-disabled':
-          errorMessage = 'This user account has been disabled.';
-          break;
-        case 'invalid-email':
-          errorMessage = 'The email address is not valid.';
-          break;
-        case 'too-many-requests':
-          errorMessage = 'Too many failed login attempts. Please try again later.';
-          break;
-        case 'network-request-failed':
-          errorMessage = 'Network error occurred. Please check your internet connection.';
-          break;
-        case 'invalid-credential':
-          errorMessage = 'The provided credentials are invalid.';
-          break;
-        default:
-          errorMessage = e.message ?? 'An unexpected error occurred during sign in. Please try again.';
-      }
-      throw errorMessage;
+      return AuthResult(success: false, message: _getErrorMessage(e.code));
+    } catch (_) {
+      return AuthResult(
+        success: false,
+        message: 'An unexpected error occurred during sign up.',
+      );
     }
   }
 
-  // Google Sign In
-  Future<UserCredential?> signInWithGoogle() async {
+  /// Sign in with Google
+  Future<AuthResult> signInWithGoogle() async {
     try {
+      // Begin interactive sign-in process
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
       if (googleUser == null) {
-        throw 'Google sign in was cancelled';
+        return AuthResult(success: false, message: 'Sign in was cancelled');
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      try {
+        // Obtain auth details from request
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
 
-      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        throw 'Failed to get Google authentication tokens';
+        // Create new credential
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        // Sign in with credential
+        final UserCredential userCredential = await _auth.signInWithCredential(
+          credential,
+        );
+
+        // Update user profile if needed
+        if (userCredential.user != null &&
+            userCredential.user!.displayName == null) {
+          await userCredential.user!.updateDisplayName(googleUser.displayName);
+        }
+
+        return AuthResult(
+          success: true,
+          message: 'Successfully signed in with Google',
+          userCredential: userCredential,
+        );
+      } catch (_) {
+        // Clean up by signing out from Google
+        await _googleSignIn.signOut();
+        rethrow;
       }
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      return await _auth.signInWithCredential(credential);
     } on FirebaseAuthException catch (e) {
-      throw e.message ?? 'Error signing in with Google';
+      return AuthResult(success: false, message: _getErrorMessage(e.code));
     } catch (e) {
-      throw 'An unexpected error occurred during Google sign in';
+      String message = 'An error occurred during Google sign in.';
+      if (e.toString().contains('network_error')) {
+        message = 'Please check your internet connection and try again.';
+      } else if (e.toString().contains('404')) {
+        message =
+            'Google Sign-In is not properly configured. Please contact support.';
+      }
+      return AuthResult(success: false, message: message);
     }
   }
 
-  // Sign Out
+  /// Sign out
   Future<void> signOut() async {
     try {
-      if (_auth.currentUser == null) {
-        throw 'No user is currently signed in';
-      }
-
-      await Future.wait([
-        _googleSignIn.signOut(),
-        _auth.signOut(),
-      ]);
-    } catch (e) {
-      throw 'Error signing out: ${e.toString()}';
+      await Future.wait([_auth.signOut(), _googleSignIn.signOut()]);
+    } catch (_) {
+      debugPrint('Error during sign out');
     }
   }
 
-  // Get current user
-  User? get currentUser => _auth.currentUser;
-
-  // Password Reset
-  Future<void> resetPassword(String email) async {
+  /// Reset password
+  Future<AuthResult> resetPassword(String email) async {
     try {
-      if (email.trim().isEmpty) {
-        throw 'Email address is required';
-      }
-
       await _auth.sendPasswordResetEmail(email: email.trim());
+      return AuthResult(
+        success: true,
+        message: 'Password reset email sent. Please check your inbox.',
+      );
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'invalid-email':
-          errorMessage = 'The email address is not valid.';
-          break;
-        case 'user-not-found':
-          errorMessage = 'No user found for this email.';
-          break;
-        case 'too-many-requests':
-          errorMessage = 'Too many password reset attempts. Please try again later.';
-          break;
-        default:
-          errorMessage = e.message ?? 'Error resetting password';
-      }
-      throw errorMessage;
+      return AuthResult(success: false, message: _getErrorMessage(e.code));
+    } catch (_) {
+      return AuthResult(
+        success: false,
+        message: 'Failed to send password reset email. Please try again.',
+      );
     }
   }
 
-  // Update User Profile
-  Future<void> updateUserProfile({String? displayName, String? photoURL}) async {
+  /// Update user profile
+  Future<void> updateUserProfile({
+    String? displayName,
+    String? photoURL,
+  }) async {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        throw 'No user is currently signed in';
+        throw 'No user is currently signed in.';
       }
 
       if (displayName != null && displayName.trim().isEmpty) {
-        throw 'Display name cannot be empty';
+        throw 'Display name cannot be empty.';
       }
 
       await user.updateDisplayName(displayName?.trim());
       await user.updatePhotoURL(photoURL?.trim());
+
+      notifyListeners();
     } catch (e) {
-      throw 'Error updating user profile: ${e.toString()}';
+      throw 'Failed to update user profile.';
     }
   }
 
-  // Check if user is signed in
-  bool get isSignedIn => _auth.currentUser != null;
+  /// Verify email
+  Future<void> sendEmailVerification() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw 'No user is currently signed in.';
+      }
+
+      await user.sendEmailVerification();
+    } catch (e) {
+      throw 'Failed to send email verification.';
+    }
+  }
+
+  /// Delete account
+  Future<void> deleteAccount() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw 'No user is currently signed in.';
+      }
+
+      await user.delete();
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw 'Failed to delete account.';
+    }
+  }
+
+  /// Re-authenticate user (required for sensitive operations)
+  Future<UserCredential> reauthenticate(String password) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-current-user',
+          message: 'No user is currently signed in.',
+        );
+      }
+
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+
+      return await user.reauthenticateWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
+  /// Get user-friendly error message
+  String _getErrorMessage(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No account found with this email. Please sign up first.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'invalid-email':
+        return 'Invalid email address format.';
+      case 'user-disabled':
+        return 'This account has been disabled. Please contact support.';
+      case 'too-many-requests':
+        return 'Too many failed attempts. Please try again later.';
+      case 'operation-not-allowed':
+        return 'This sign-in method is not enabled. Please contact support.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection.';
+      case 'email-already-in-use':
+        return 'An account already exists with this email.';
+      case 'weak-password':
+        return 'Password is too weak. Please use a stronger password.';
+      case 'account-exists-with-different-credential':
+        return 'An account already exists with a different sign-in method.';
+      case 'invalid-credential':
+        return 'The sign-in credential is invalid. Please try again.';
+      default:
+        return 'An unexpected error occurred. Please try again.';
+    }
+  }
 }

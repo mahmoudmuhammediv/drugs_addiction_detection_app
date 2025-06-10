@@ -12,7 +12,20 @@
           "package_name": "com.example.drugs_addiction_detection"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "459145001049-02qka3ml6agdidu6em2r06vmjpb6tfjn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.drugs_addiction_detection",
+            "certificate_hash": "9feb8ece8e3cd31e3c60ded413117f85f1bdb0ea"
+          }
+        },
+        {
+          "client_id": "459145001049-f74sa1u8t0msojj92dup8qevem2c5cuv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDwJ_AeBDIdDJvRirfU6Dpyfy3sPkaWe8o"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "459145001049-f74sa1u8t0msojj92dup8qevem2c5cuv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "459145001049-9l6eivngqtuq1mkr5kvf10jjga4m2vfp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.drugsAddictionDetection"
+              }
+            }
+          ]
         }
       }
     }
