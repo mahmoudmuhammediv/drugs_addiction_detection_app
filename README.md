@@ -25,7 +25,7 @@ A Flutter application that uses machine learning to detect potential signs of ad
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/addiction_detection_app.git
+git clone https://github.com/mahmoudmuhammediv/addiction_detection_app.git
 cd addiction_detection_app
 ```
 
@@ -52,6 +52,7 @@ flutter run
 lib/
 ├── constants/      # App-wide constants
 ├── models/         # Data models and ML classifier
+├── providers/         # auth providers
 ├── screens/        # UI screens
 ├── services/       # Authentication and other services
 ├── utils/          # Utility functions
