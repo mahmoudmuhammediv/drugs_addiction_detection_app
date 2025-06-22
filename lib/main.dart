@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'screens/login_page.dart';
 import 'screens/signup_page.dart';
 import 'screens/home_screen.dart';
+import 'screens/info_screen.dart';
 import 'constants/app_theme.dart';
 import 'widgets/auth_wrapper.dart';
 
@@ -26,6 +27,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/signup': (context) => const SignUpPage(),
         '/home': (context) => const HomeScreen(),
+        '/info': (context) => const InfoScreen(),
       },
     );
   }

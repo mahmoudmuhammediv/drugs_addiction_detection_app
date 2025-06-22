@@ -1,10 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/classifier.dart';
+import '../models/prediction_result.dart';
 import '../services/auth_service.dart';
 import '../widgets/image_picker_widget.dart';
 import '../widgets/loading_overlay.dart';
+import '../widgets/analysis_result_widget.dart';
+import '../widgets/medical_disclaimer_widget.dart';
 import '../constants/app_constants.dart';
+import '../utils/face_detection_utils.dart';
+import 'info_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,7 +20,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   File? _image;
-  String _prediction = "";
+  PredictionResult? _predictionResult;
   bool _isProcessing = false;
   final Classifier _classifier = Classifier();
   final _authService = AuthService();
@@ -25,19 +30,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       _isProcessing = true;
-      _prediction = "Analyzing image...";
+      _predictionResult = null;
     });
 
     try {
-      final prediction = await _classifier.predict(_image!);
-      setState(() => _prediction = prediction);
+      // First check if there's a face in the image
+      final hasFace = await FaceDetectionUtils.detectFace(_image!);
+      if (!hasFace) {
+        throw Exception('No face found in image');
+      }
+
+      // Then run prediction on the original image
+      final result = await _classifier.predict(_image!);
+      setState(() => _predictionResult = result);
     } catch (e) {
       if (!mounted) return;
 
+      String errorMessage = e.toString();
+      if (errorMessage.contains('No face found')) {
+        errorMessage =
+            'No face found in image. Please try again with a clearer image of a face.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
       );
-      setState(() => _prediction = "");
+      setState(() => _predictionResult = null);
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
@@ -84,6 +106,14 @@ class _HomeScreenState extends State<HomeScreen> {
           elevation: 0,
           actions: [
             IconButton(
+              icon: const Icon(Icons.info_outline, color: Colors.white),
+              onPressed:
+                  () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const InfoScreen()),
+                  ),
+              tooltip: 'About This App',
+            ),
+            IconButton(
               icon: const Icon(Icons.logout, color: Colors.white),
               onPressed: _handleLogout,
               tooltip: 'Logout',
@@ -97,22 +127,24 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(),
-                const SizedBox(height: 40),
+                const SizedBox(height: 24),
+                const MedicalDisclaimerWidget(),
+                const SizedBox(height: 32),
                 ImagePickerWidget(
                   image: _image,
                   onImagePicked: (File? file) {
                     setState(() {
                       _image = file;
-                      _prediction = "";
+                      _predictionResult = null;
                     });
                   },
                   isProcessing: _isProcessing,
                 ),
                 const SizedBox(height: 32),
                 _buildAnalyzeButton(),
-                if (_prediction.isNotEmpty) ...[
+                if (_predictionResult != null) ...[
                   const SizedBox(height: 32),
-                  _buildResult(),
+                  AnalysisResultWidget(result: _predictionResult!),
                 ],
               ],
             ),
@@ -173,59 +205,6 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildResult() {
-    final isAddicted = _prediction.toLowerCase().contains("addicted");
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppConstants.defaultPadding),
-      decoration: BoxDecoration(
-        color:
-            isAddicted ? Colors.red.withAlpha(25) : Colors.green.withAlpha(25),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color:
-              isAddicted
-                  ? Colors.red.withAlpha(77)
-                  : Colors.green.withAlpha(77),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Analysis Result",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isAddicted ? Colors.red : Colors.green,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _prediction,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: isAddicted ? Colors.red : Colors.green,
-            ),
-          ),
-          if (isAddicted) ...[
-            const SizedBox(height: 16),
-            const Text(
-              "Please seek professional help if you or someone you know is struggling with addiction.",
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }

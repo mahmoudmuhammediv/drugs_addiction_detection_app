@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import '../utils/image_utils.dart';
+import '../utils/face_detection_utils.dart';
 import '../constants/app_constants.dart';
+import 'prediction_result.dart';
 
 /// A class that handles the TensorFlow Lite model operations for addiction detection
 class Classifier {
@@ -26,9 +28,9 @@ class Classifier {
   }
 
   /// Predicts whether the person in the image shows signs of addiction
-  /// Returns "Addicted" or "Not Addicted"
+  /// Returns a PredictionResult object with confidence levels and metadata
   /// Throws an exception if the model is not loaded or if processing fails
-  Future<String> predict(File imageFile) async {
+  Future<PredictionResult> predict(File imageFile) async {
     if (!_isModelLoaded) {
       throw Exception('Model not loaded');
     }
@@ -37,6 +39,12 @@ class Classifier {
       // Validate image
       if (!await ImageUtils.isValidImage(imageFile)) {
         throw Exception('Invalid image file');
+      }
+
+      // Check if there's a face in the image
+      final hasFace = await FaceDetectionUtils.detectFace(imageFile);
+      if (!hasFace) {
+        throw Exception('No face found in image');
       }
 
       // Process image for model input
@@ -79,8 +87,8 @@ class Classifier {
       // Clean up temporary files
       await ImageUtils.cleanupTempImages();
 
-      // Return prediction
-      return output[0][0] > 0.5 ? "Not Addicted" : "Addicted";
+      // Return prediction result with confidence
+      return PredictionResult.fromModelOutput(output[0][0]);
     } catch (e) {
       throw Exception('${AppConstants.modelError}: $e');
     }
